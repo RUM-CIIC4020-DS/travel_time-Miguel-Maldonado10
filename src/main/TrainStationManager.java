@@ -20,6 +20,7 @@ public class TrainStationManager {
 	}
 	
 	public Map<String, Double> getTravelTimes() {
+		return null;
 		// 5 minutes per kilometer
 		// 15 min per station
 		
@@ -27,6 +28,7 @@ public class TrainStationManager {
 
 
 	public Map<String, List<Station>> getStations() {
+		return null;
 		
 	}
 
@@ -37,6 +39,7 @@ public class TrainStationManager {
 
 
 	public Map<String, Station> getShortestRoutes() {
+		return null;
 		
 	}
 
