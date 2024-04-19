@@ -27,6 +27,7 @@ public class TrainStationManager {
 	Stack<Station>stationStack = new LinkedListStack<>();
 	Set<Station> stationSet = new HashSet<>();
 	Station Home = new Station(null, 0);
+	Map<String, Stack<String>> trajectories = new HashTableSC <String, Stack<String>>(1, simple);
 
 	public TrainStationManager(String station_file){
 		try (BufferedReader stationReader = new BufferedReader(new FileReader("inputFiles/" + station_file))) {
@@ -88,7 +89,9 @@ public class TrainStationManager {
 					}
 				}
 			}
-			
+			for(String lambda : neighborsMap.getKeys()){
+				shortestDistanceMap.put(lambda, new Station("Westside", Integer.MAX_VALUE));
+			}
 			findShortestDistance();
 
 		} catch (FileNotFoundException e) {
@@ -100,51 +103,29 @@ public class TrainStationManager {
 	}
 	
 	private void findShortestDistance() {
-		Station Home = new Station("Westside", 0);
-		Stack<Station> toVisit = new LinkedStack<>();
-		Set<Station> Visited = new HashSet<>();
-
-		toVisit.push(Home);
-		shortestDistanceMap.put(Home.getCityName(), Home);
-
-		while(!toVisit.isEmpty()){
-			Station currStation = toVisit.pop();
-			Visited.add(currStation);
-
-			if(neighborsMap.get(currStation.getCityName()) != null){
-                for(Station neighbor : neighborsMap.get(currStation.getCityName())){
-                    if(neighborsMap.get(neighbor.getCityName()) != null){
-						int distance = 0;
-                        int A = Integer.MAX_VALUE;
-						int B = Integer.MAX_VALUE;
-						int C = neighbor.getDistance();
-
-						for(Station AStation : neighborsMap.get(neighbor.getCityName())){
-							if(A>AStation.getDistance()){
-								A = AStation.getDistance();
-							}
+		Station home = new Station("Westside", 0);
+		Stack<String> toVisit = new LinkedStack<>();
+		Set<String> visited = new HashSet<>();
+	
+		toVisit.push(home.getCityName());
+		shortestDistanceMap.put(home.getCityName(), home);
+	
+		while (!toVisit.isEmpty()) {
+			//System.out.print("Started while loop \n");
+			String currentCityName = toVisit.pop();
+			visited.add(currentCityName);
+			Station currentStation = shortestDistanceMap.get(currentCityName);
+	
+			if (neighborsMap.containsKey(currentCityName)) {
+				//System.out.print("Past first if \n");
+				for (Station neighbor : neighborsMap.get(currentCityName)) {
+					int distanceToNeighbor = currentStation.getDistance() + neighbor.getDistance();
+					if (distanceToNeighbor < shortestDistanceMap.get(neighbor.getCityName()).getDistance()) {
+						Station temp = new Station(neighbor.getCityName(), distanceToNeighbor);
+						shortestDistanceMap.put(temp.getCityName(), temp);
+						if (!visited.isMember(temp.getCityName())) {
+							toVisit.push(temp.getCityName());
 						}
-
-						for(Station BStation : neighborsMap.get(currStation.getCityName())){
-							if(B>BStation.getDistance()){
-								B = BStation.getDistance();
-							}
-						}
-						distance = A;
-						System.out.print("A = " + A + "\n");
-						System.out.print("B = " + B + "\n");
-						System.out.print("C = " + C + "\n");
-						System.out.print("------------------- \n");
-						if(A > B + C){
-							distance = B+C;
-						}
-
-						shortestDistanceMap.put(currStation.getCityName(), new Station(neighbor.getCityName(), distance));
-
-						if(!Visited.isMember(neighbor)){
-							toVisit.push(neighbor);
-						}
-
 					}
 				}
 			}
@@ -165,13 +146,51 @@ public class TrainStationManager {
 			}
 		}
 	}
-	
 	public Map<String, Double> getTravelTimes() {
-		return null;
-		// 5 minutes per kilometer
-		// 15 min per station
-		
+		Map<String, Double> travelTime = new HashTableSC(1, simple);
+		for (String cityName : neighborsMap.getKeys()) {
+			Station currentStation = shortestDistanceMap.get(cityName);
+			int distance = currentStation.getDistance();
+			
+			if (currentStation.getCityName().equals("Westside")) {
+				travelTime.put(cityName, distance * 2.5);
+			} else {
+				Stack<String> stopStack = new LinkedListStack<>();
+				int stops = calculateStopsToWestside(currentStation, stopStack) - 1;
+				trajectories.put(cityName, stopStack);
+				double totalTime = distance * 2.5 + stops * 15; // 5 minutes per kilometer, 15 minutes per station
+				travelTime.put(cityName, totalTime);
+			}
+		}
+		return travelTime;
 	}
+	
+	private int calculateStopsToWestside(Station currentStation, Stack<String> stops) {
+
+		if(currentStation == null){
+			return 0; // para evitar null pointer exception
+		}
+
+		stops.push(currentStation.getCityName());
+		
+		if (currentStation.getCityName().equals("Westside")) {
+			return 0; // llego
+		} else {
+			int max =Integer.MAX_VALUE;
+			Station nextStation = new Station(null, max);
+			for(Station n : neighborsMap.get(currentStation.getCityName())){
+				if(shortestDistanceMap.get(n.getCityName()).getDistance()<max){
+					nextStation = n;
+					max = shortestDistanceMap.get(n.getCityName()).getDistance();
+				}
+			} //iteramos por neighborsMap para entonces verificar el shortest distance map
+			if(nextStation==null || nextStation.equals(currentStation)){
+				return 0;
+			} // si no lo encontramos o me da lo mismo a currentStation evitamos que afecte la sumatoria
+			return 1 + calculateStopsToWestside(nextStation, stops); // recursion :D
+		}
+	}
+	
 
 
 	public Map<String, List<Station>> getStations() {
@@ -187,12 +206,42 @@ public class TrainStationManager {
 
 	public Map<String, Station> getShortestRoutes() {
 		return shortestDistanceMap;
-		
 	}
 
 
 	public void setShortestRoutes(Map<String, Station> shortestRoutes) {
 		shortestDistanceMap = shortestRoutes;
+	}
+
+	private Stack<String> getTrajectoryStack(String currentStation, Stack<String>stops){
+
+		if(currentStation == null){
+			return stops; 
+		}
+
+		System.out.print("adding: " + currentStation + "\n");
+
+		stops.push(currentStation);
+		
+		if (currentStation.equals("Westside")) {
+			return stops; // llego
+		} else {
+			int max =Integer.MAX_VALUE;
+			String nextStation = "";
+			System.out.print("veryfying: \n");
+			for(Station n : neighborsMap.get(currentStation)){
+				System.out.print(n.getCityName() + " " + shortestDistanceMap.get(n.getCityName()).getDistance() + "\n");
+				if(shortestDistanceMap.get(n.getCityName()).getDistance() < max){
+					nextStation = n.getCityName();
+					max = shortestDistanceMap.get(n.getCityName()).getDistance();
+				}
+			} //iteramos por neighborsMap para entonces verificar el shortest distance map
+			if(nextStation==null || nextStation.equals(currentStation)){
+				return stops;
+			} // si no lo encontramos o me da lo mismo a currentStation evitamos que afecte la sumatoria
+			System.out.print("passing: " + nextStation + "\n");
+			return getTrajectoryStack(nextStation, stops); // recursion :D
+		}
 	}
 	
 	/**
@@ -206,7 +255,23 @@ public class TrainStationManager {
 	 */
 	public String traceRoute(String stationName) {
 		// Remove if you implement the method, otherwise LEAVE ALONE
-		throw new UnsupportedOperationException();
+		//throw new UnsupportedOperationException();
+		Stack<String> route = getTrajectoryStack(stationName, new LinkedListStack<String>());
+
+		if(route == null || route.isEmpty()){
+			return null;
+		}
+
+		String result = route.pop();
+
+		while(!route.isEmpty()){
+			result += "->" + route.pop();
+		}
+
+		System.out.print(result + "\n");
+		System.out.print("------------- \n" );
+
+		return result;
 	}
 
 }
