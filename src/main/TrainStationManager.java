@@ -19,16 +19,39 @@ import interfaces.Map;
 import interfaces.Set;
 import interfaces.Stack;
 
+/**
+ * This class manages all the train stations
+ * 
+ * @author Miguel Maldonado Maldonado
+ */
 public class TrainStationManager {
 	HashFunction simple = new SimpleHashFunction<>();
+	/**
+	 * neighborsMap - map of neighbors with it's key is a station's name and the value a list of said city's neighbors
+	 * 
+	 * shortestDistanceMap - map of the shortest distance with it's key being a station name and it's value is a station with  
+	 * 	it's name being a neighbor we have to go through to get to Westside and the distance to Westside
+	 * 
+	 * stationStack - sorted stack with all the stations ordered in order of the distance
+	 * 
+	 * stationSet - set with all the stations visited
+	 * 
+	 * trajectories - map with the key being a station's name and the value being a Stack of the stops we made on our way to "Westside"
+	 */ 
 	Map<String, List<Station>> neighborsMap = new HashTableSC<String, List<Station>>(1, simple);
 	Map<String, Station> shortestDistanceMap = new HashTableSC<String, Station>(1, simple);
-	List<String>stationNames = new SinglyLinkedList<>();
+	//List<String>stationNames = new SinglyLinkedList<>();
 	Stack<Station>stationStack = new LinkedListStack<>();
 	Set<Station> stationSet = new HashSet<>();
-	Station Home = new Station(null, 0);
 	Map<String, Stack<String>> trajectories = new HashTableSC <String, Stack<String>>(1, simple);
 
+
+	/**
+	 * Reads data from a file to initialize a train station network
+ 	 * It sets up various data structures to manage station information and calculates the shortest distances between stations
+	 *
+	 * @param station_file given file with all the data to process
+	 */
 	public TrainStationManager(String station_file){
 		try (BufferedReader stationReader = new BufferedReader(new FileReader("inputFiles/" + station_file))) {
 			String s;
@@ -94,14 +117,19 @@ public class TrainStationManager {
 			}
 			findShortestDistance();
 
+			
+
 		} catch (FileNotFoundException e) {
 			System.err.println("File not found: " + e.getMessage());
 		} catch (IOException e) {
 			System.err.println("Error reading files: " + e.getMessage());
 		}
-		
+		//GUI ourGUI = new GUI();
 	}
-	
+	/**
+	 * Uses a shortest path algorithm to find the shortest distance from a starting 
+	 * station ("Westside") to all other stations in the network.
+	 */
 	private void findShortestDistance() {
 		Station home = new Station("Westside", 0);
 		Stack<String> toVisit = new LinkedStack<>();
@@ -132,6 +160,14 @@ public class TrainStationManager {
 		}
 	}
 
+	
+	/** 
+	 * Inserts a station into a sorted stack based on its distance 
+	 * Used to maintain stations in sorted order for certain operations
+	 * 
+	 * @param station station we're adding to the stack
+	 * @param stackToSort the stack to sort
+	 */
 	public void sortStack(Station station, Stack<Station> stackToSort) {
 		if(stackToSort.isEmpty()){
 			stackToSort.push(station);
@@ -146,6 +182,12 @@ public class TrainStationManager {
 			}
 		}
 	}
+	
+	/** 
+	 *  Calculates travel times from each station to "Westside" based on distance and stops
+	 * 
+	 * @return Map<String, Double> map of station names and their respective travel times
+	 */
 	public Map<String, Double> getTravelTimes() {
 		Map<String, Double> travelTime = new HashTableSC(1, simple);
 		for (String cityName : neighborsMap.getKeys()) {
@@ -156,7 +198,7 @@ public class TrainStationManager {
 				travelTime.put(cityName, distance * 2.5);
 			} else {
 				Stack<String> stopStack = new LinkedListStack<>();
-				int stops = calculateStopsToWestside(currentStation, stopStack) - 1;
+				int stops = calculateStopsToWestside(currentStation) - 1;
 				trajectories.put(cityName, stopStack);
 				double totalTime = distance * 2.5 + stops * 15; // 5 minutes per kilometer, 15 minutes per station
 				travelTime.put(cityName, totalTime);
@@ -165,16 +207,21 @@ public class TrainStationManager {
 		return travelTime;
 	}
 	
-	private int calculateStopsToWestside(Station currentStation, Stack<String> stops) {
+	
+	/** 
+	 * Recursive method to calculate the number of stops from a station to "Westside" along the shortest path
+	 * 
+	 * @param currentStation the current station we're recursing over
+	 * @return int how many stops we need to make it to "Westside"
+	 */
+	private int calculateStopsToWestside(Station currentStation) {
 
 		if(currentStation == null){
-			return 0; // para evitar null pointer exception
+			return 0; // to avoid null pointer exception
 		}
-
-		stops.push(currentStation.getCityName());
 		
 		if (currentStation.getCityName().equals("Westside")) {
-			return 0; // llego
+			return 0; // we made it :D
 		} else {
 			int max =Integer.MAX_VALUE;
 			Station nextStation = new Station(null, max);
@@ -183,36 +230,60 @@ public class TrainStationManager {
 					nextStation = n;
 					max = shortestDistanceMap.get(n.getCityName()).getDistance();
 				}
-			} //iteramos por neighborsMap para entonces verificar el shortest distance map
+			} //we iterate over neighborsMap to check the shortest distance map
+
 			if(nextStation==null || nextStation.equals(currentStation)){
 				return 0;
-			} // si no lo encontramos o me da lo mismo a currentStation evitamos que afecte la sumatoria
-			return 1 + calculateStopsToWestside(nextStation, stops); // recursion :D
+			} // we avoid stackOverflow in case the for loop fails to set a new different station to recurse over
+			return 1 + calculateStopsToWestside(nextStation); // recursion :D
 		}
 	}
 	
 
-
+	/**
+	 * Retrieves neighborMap that contains all the stations and their neighboring stations
+	 * 
+ 	 * @return Map<String, List<Station>> map containing all stations and their neighboring stations
+ 	 */
 	public Map<String, List<Station>> getStations() {
 		return neighborsMap;
 		
 	}
 
-
+	/**
+	 * Sets the neighbors map using a given map of stations and their neighboring stations
+	 * 
+	 * @param cities map of stations and their neighbors to set
+	 */
 	public void setStations(Map<String, List<Station>> cities) {
 		neighborsMap = cities;
 	}
 
-
+	/**
+	 * Sets the shortest routes map using a given map of stations and their shortest routes
+	 * 
+	 * @return map of stations and their shortest routes
+	 */
 	public Map<String, Station> getShortestRoutes() {
 		return shortestDistanceMap;
 	}
 
-
+	/**
+	 * Sets the shortest routes map using a given map of stations and their shortest routes
+	 * 
+	 * @param shortestRoutes given map of stations and their shortest routes to set
+	 */
 	public void setShortestRoutes(Map<String, Station> shortestRoutes) {
 		shortestDistanceMap = shortestRoutes;
 	}
 
+	/**
+	 * Calculates the trajectory stack for tracing the route from a given station to "Westside" using recursion
+	 * 
+	 * @param currentStation the iterating station
+	 * @param stops the stack of station names on our way to "Westside"
+	 * @return Stack<String> stack of stops
+	 */
 	private Stack<String> getTrajectoryStack(String currentStation, Stack<String>stops){
 
 		if(currentStation == null){
@@ -230,10 +301,11 @@ public class TrainStationManager {
 			String nextStation = "";
 			System.out.print("veryfying: \n");
 			for(Station n : neighborsMap.get(currentStation)){
-				System.out.print(n.getCityName() + " " + shortestDistanceMap.get(n.getCityName()).getDistance() + "\n");
-				if(shortestDistanceMap.get(n.getCityName()).getDistance() < max){
+				int distance = shortestDistanceMap.get(n.getCityName()).getDistance() + n.getDistance();
+				System.out.print(n.getCityName() + " " + distance + "\n");
+				if(distance < max){
 					nextStation = n.getCityName();
-					max = shortestDistanceMap.get(n.getCityName()).getDistance();
+					max = distance;
 				}
 			} //iteramos por neighborsMap para entonces verificar el shortest distance map
 			if(nextStation==null || nextStation.equals(currentStation)){

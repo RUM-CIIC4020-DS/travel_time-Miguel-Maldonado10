@@ -1,0 +1,15 @@
+src_city,dest_city,distance
+Westside,A,5
+Westside,H,72
+Westside,E,47
+A,E,35
+A,G,87
+B,D,24
+C,D,20
+C,G,76
+D,F,55
+E,G,50
+E,J,95
+F,H,80
+H,I,15
+I,J,17
