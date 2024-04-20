@@ -5,6 +5,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
+import javax.swing.JOptionPane;
+
 import data_structures.ArrayList;
 import data_structures.ArrayListStack;
 import data_structures.HashSet;
@@ -12,7 +14,6 @@ import data_structures.HashTableSC;
 import data_structures.LinkedListStack;
 import data_structures.LinkedStack;
 import data_structures.SimpleHashFunction;
-import data_structures.SinglyLinkedList;
 import interfaces.HashFunction;
 import interfaces.List;
 import interfaces.Map;
@@ -40,7 +41,6 @@ public class TrainStationManager {
 	 */ 
 	Map<String, List<Station>> neighborsMap = new HashTableSC<String, List<Station>>(1, simple);
 	Map<String, Station> shortestDistanceMap = new HashTableSC<String, Station>(1, simple);
-	//List<String>stationNames = new SinglyLinkedList<>();
 	Stack<Station>stationStack = new LinkedListStack<>();
 	Set<Station> stationSet = new HashSet<>();
 	Map<String, Stack<String>> trajectories = new HashTableSC <String, Stack<String>>(1, simple);
@@ -125,7 +125,93 @@ public class TrainStationManager {
 			System.err.println("Error reading files: " + e.getMessage());
 		}
 		//GUI ourGUI = new GUI();
+
+		String[] options = new String[neighborsMap.getKeys().size()-1];
+		
+
+		for(int i = 1; i < neighborsMap.getKeys().size(); i++){
+			options[i-1]=neighborsMap.getKeys().get(i);
+		}
+		Map<String, Integer> departureMap = new HashTableSC<>(neighborsMap.getKeys().size() - 1, simple);
+		departureMap.put("Bugapest", 575);
+		departureMap.put("Dubay", 630);
+		departureMap.put("Berlint", 1225);
+		departureMap.put("Mosbull", 1080);
+		departureMap.put("Cayro", 400);
+		departureMap.put("Bostin", 625);
+		departureMap.put("Los Angelos", 750);
+		departureMap.put("Dome", 810);
+		departureMap.put("Takyo", 935);
+		departureMap.put("Unstabul", 1005);
+		departureMap.put("Chicargo", 445);
+		departureMap.put("Loondun", 840);
+
+		Map<String, Integer> arrivalMap = new HashTableSC<>(neighborsMap.getKeys().size() - 1, simple);
+
+		for(String n : departureMap.getKeys()){
+			double temp = getTravelTimes().get(n) + departureMap.get(n);
+			arrivalMap.put(n,(int)temp);
+		}
+
+
+
+		/** 
+		FOR TA/Professor BENEFIT: Comment GUI below for grading purposes :)
+		*/
+
+
+
+		int Selection = JOptionPane.showOptionDialog(null, 
+		GUImessage(departureMap, arrivalMap) + "\nWhere are you headed?", 
+		"Welcome to Westside!", 
+		0, 
+		JOptionPane.INFORMATION_MESSAGE, 
+		null, 
+		options, 
+		0);
+
+		if(Selection >= 0){
+			String selected = neighborsMap.getKeys().get(Selection + 1);
+			JOptionPane.showMessageDialog(null, "You are headed to " + selected + "\n Estimated time of Arrival: " + 
+			toHour(arrivalMap.get(selected)) + "\n Here's your route: \n" +  traceRoute(selected));
+		}
+
+
+
+		/* 
+		 * Comment GUI above for grading purposes
+		 */
+
+
+		 
 	}
+
+	private String toHour(int t){
+		int hour = t/60;
+		int minute = t%60;
+		boolean isAM = true;
+
+		while(hour>12){
+			hour-=12;
+			isAM = !isAM;
+		}
+
+		if(isAM){
+			return hour + ":" + minute + "am";
+		}
+
+		return hour + ":" + minute + "pm";
+	}
+
+	private String GUImessage(Map<String, Integer> Departure, Map<String, Integer> Arrival){
+		String message = "Station   |   Departure   |   Arrival \n";
+		for(String n : Departure.getKeys()){
+			message += n + "   |   " + toHour(Departure.get(n)) + "   |   " + toHour(Arrival.get(n)) + "\n";
+		}
+		System.out.print(message);
+		return message;
+	}
+
 	/**
 	 * Uses a shortest path algorithm to find the shortest distance from a starting 
 	 * station ("Westside") to all other stations in the network.
@@ -226,15 +312,19 @@ public class TrainStationManager {
 			int max =Integer.MAX_VALUE;
 			Station nextStation = new Station(null, max);
 			for(Station n : neighborsMap.get(currentStation.getCityName())){
-				if(shortestDistanceMap.get(n.getCityName()).getDistance()<max){
+				int distance = shortestDistanceMap.get(n.getCityName()).getDistance() + n.getDistance();
+				//System.out.print(n.getCityName() + " " + distance + "\n");
+				if(distance < max){
 					nextStation = n;
-					max = shortestDistanceMap.get(n.getCityName()).getDistance();
+					max = distance;
 				}
 			} //we iterate over neighborsMap to check the shortest distance map
 
 			if(nextStation==null || nextStation.equals(currentStation)){
 				return 0;
-			} // we avoid stackOverflow in case the for loop fails to set a new different station to recurse over
+			} 
+
+			// we avoid stackOverflow in case the for loop fails to set a new different station to recurse over
 			return 1 + calculateStopsToWestside(nextStation); // recursion :D
 		}
 	}
@@ -290,7 +380,7 @@ public class TrainStationManager {
 			return stops; 
 		}
 
-		System.out.print("adding: " + currentStation + "\n");
+		//System.out.print("adding: " + currentStation + "\n");
 
 		stops.push(currentStation);
 		
@@ -299,10 +389,10 @@ public class TrainStationManager {
 		} else {
 			int max =Integer.MAX_VALUE;
 			String nextStation = "";
-			System.out.print("veryfying: \n");
+			//System.out.print("veryfying: \n");
 			for(Station n : neighborsMap.get(currentStation)){
 				int distance = shortestDistanceMap.get(n.getCityName()).getDistance() + n.getDistance();
-				System.out.print(n.getCityName() + " " + distance + "\n");
+				//System.out.print(n.getCityName() + " " + distance + "\n");
 				if(distance < max){
 					nextStation = n.getCityName();
 					max = distance;
@@ -311,7 +401,7 @@ public class TrainStationManager {
 			if(nextStation==null || nextStation.equals(currentStation)){
 				return stops;
 			} // si no lo encontramos o me da lo mismo a currentStation evitamos que afecte la sumatoria
-			System.out.print("passing: " + nextStation + "\n");
+			//System.out.print("passing: " + nextStation + "\n");
 			return getTrajectoryStack(nextStation, stops); // recursion :D
 		}
 	}
@@ -340,8 +430,8 @@ public class TrainStationManager {
 			result += "->" + route.pop();
 		}
 
-		System.out.print(result + "\n");
-		System.out.print("------------- \n" );
+		//System.out.print(result + "\n");
+		//System.out.print("------------- \n" );
 
 		return result;
 	}
